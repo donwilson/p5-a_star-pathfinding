@@ -1,8 +1,8 @@
 	
 	let iter = 0;
 	
-	let cols = 50;
-	let rows = 50;
+	let cols = 45;
+	let rows = 45;
 	let grid;
 	
 	let openSet;
@@ -12,12 +12,18 @@
 	let w, h;
 	let path;
 	
+	let do_diagonal = true;
+	let grid_spawn_rate = 0.35;
+	
+	let found_path = false;
+	
 	function generateNewBoard() {
 		// reset global variables
 		grid = [];
 		openSet = [];
 		closedSet = [];
 		path = [];
+		found_path = false;
 		
 		// 2d array + create spots
 		for(let i = 0; i < cols; i++) {
@@ -82,19 +88,23 @@
 		this.previous = undefined;
 		this.wall = false;
 		
-		if(random(1) < 0.3) {
+		if(random(1) < grid_spawn_rate) {
 			this.wall = true;
 		}
 		
 		this.show = function(col) {
+			noStroke();
+			
+			//stroke(col);
 			fill(col);
 			
 			if(this.wall) {
-				fill(0);
+				//stroke(45, 45, 45);
+				fill(45, 45, 45);
 			}
 			
-			stroke(0);
-			rect((this.i * w), (this.j * h), (w - 1), (h - 1));
+			//rect((this.i * w), (this.j * h), (w - 1), (h - 1));
+			rect((this.i * w), (this.j * h), w, h);
 		};
 		
 		this.addNeighbors = function(grid) {
@@ -121,30 +131,32 @@
 				this.neighbors.push(grid[ i     ][ j - 1 ]);
 			}
 			
-			// diag top left
-			if((i > 0) && (j > 0)) {
-				this.neighbors.push(grid[ i - 1 ][ j - 1 ]);
-			}
-			
-			// diag top right
-			if((i < (cols - 1)) && (j > 0)) {
-				this.neighbors.push(grid[ i + 1 ][ j - 1 ]);
-			}
-			
-			// diag bottom left
-			if((i > 0) && (j < (rows - 1))) {
-				this.neighbors.push(grid[ i - 1 ][ j + 1 ]);
-			}
-			
-			// diag bottom right
-			if((i < (cols - 1)) && (j < (cols - 1))) {
-				this.neighbors.push(grid[ i + 1 ][ j + 1 ]);
+			if(do_diagonal) {
+				// diag top left
+				if((i > 0) && (j > 0)) {
+					this.neighbors.push(grid[ i - 1 ][ j - 1 ]);
+				}
+				
+				// diag top right
+				if((i < (cols - 1)) && (j > 0)) {
+					this.neighbors.push(grid[ i + 1 ][ j - 1 ]);
+				}
+				
+				// diag bottom left
+				if((i > 0) && (j < (rows - 1))) {
+					this.neighbors.push(grid[ i - 1 ][ j + 1 ]);
+				}
+				
+				// diag bottom right
+				if((i < (cols - 1)) && (j < (cols - 1))) {
+					this.neighbors.push(grid[ i + 1 ][ j + 1 ]);
+				}
 			}
 		};
 	}
-		
+	
 	function setup() {
-		createCanvas(400, 400);
+		createCanvas(600, 600);
 		
 		w = (width / cols);
 		h = (height / rows);
@@ -154,6 +166,7 @@
 	
 	function draw() {
 		var current;
+		let solved_this_round = false;
 		
 		if(openSet.length > 0) {
 			// keep going
@@ -175,36 +188,41 @@
 				window.setTimeout(function() {
 					generateNewBoard();
 				}, 1000);
+				
+				solved_this_round = true;
+				found_path = true;
 			}
 			
-			removeFromArray(openSet, current);
-			closedSet.push(current);
-			
-			let neighbors = current.neighbors;
-			
-			for(let i = 0; i < neighbors.length; i++) {
-				let neighbor = neighbors[ i ];
+			if(!solved_this_round) {
+				removeFromArray(openSet, current);
+				closedSet.push(current);
 				
-				if(!closedSet.includes(neighbor) && !neighbor.wall) {
-					let tempG = current.g + 1;
+				let neighbors = current.neighbors;
+				
+				for(let i = 0; i < neighbors.length; i++) {
+					let neighbor = neighbors[ i ];
 					
-					let newPath = false;
-					
-					if(openSet.includes(neighbor)) {
-						if(tempG < neighbor.g) {
+					if(!closedSet.includes(neighbor) && !neighbor.wall) {
+						let tempG = current.g + 1;
+						
+						let newPath = false;
+						
+						if(openSet.includes(neighbor)) {
+							if(tempG < neighbor.g) {
+								neighbor.g = tempG;
+								newPath = true;
+							}
+						} else {
 							neighbor.g = tempG;
 							newPath = true;
+							openSet.push(neighbor);
 						}
-					} else {
-						neighbor.g = tempG;
-						newPath = true;
-						openSet.push(neighbor);
-					}
-					
-					if(newPath) {
-						neighbor.h = heuristic(neighbor, end);
-						neighbor.f = (neighbor.g + neighbor.h);
-						neighbor.previous = current;
+						
+						if(newPath) {
+							neighbor.h = heuristic(neighbor, end);
+							neighbor.f = (neighbor.g + neighbor.h);
+							neighbor.previous = current;
+						}
 					}
 				}
 			}
@@ -230,11 +248,11 @@
 		}
 		
 		for(let i = 0; i < closedSet.length; i++) {
-			closedSet[ i ].show(color(255, 0, 0));
+			closedSet[ i ].show(color(255, 142, 142));
 		}
 		
 		for(let i = 0; i < openSet.length; i++) {
-			openSet[ i ].show(color(0, 255, 0));
+			openSet[ i ].show(color(94, 147, 255));
 		}
 		
 		
@@ -247,8 +265,23 @@
 			temp = temp.previous;
 		}
 		
+		
+		
+		
+		let start_color = color(255, 255, 0);
+		let end_color = color(0, 163, 106);
+		
+		let dist_startEnd = dist(start.i, start.j, end.i, end.j);
+		
 		for(let i = 0; i < path.length; i++) {
-			path[ i ].show(color(0, 0, 255));
+			let dist_startPathPoint = dist(start.i, start.j, path[ i ].i, path[ i ].j);
+			
+			path[ i ].show(lerpColor(start_color, end_color, (dist_startPathPoint / dist_startEnd)));
 		}
+		
+		
+		// draw start + end
+		start.show(start_color);
+		end.show(end_color);
 	}
 	
